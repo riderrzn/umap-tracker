@@ -13,17 +13,25 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# MISRA C++:2023 compliance flags
-set(MISRA_CXX_FLAGS
-    -Wall -Wextra -Wpedantic -Werror
-    -Wconversion -Wsign-conversion
-    -Wnon-virtual-dtor -Wold-style-cast -Woverloaded-virtual
-    -Wno-c++98-compat -Wno-c++98-compat-pedantic
-    -fno-exceptions -fno-rtti
-    -fstack-protector-strong
-)
-
-add_compile_options(${MISRA_CXX_FLAGS})
+# MISRA C++:2023 compliance flags (for our code only, not external deps)
+if(MSVC)
+    # MSVC compiler flags
+    set(MISRA_CXX_FLAGS
+        /W4
+        /fp:strict
+    )
+    # Note: /WX (warnings as errors) applied per-target in core/CMakeLists.txt
+else()
+    # GCC/Clang flags
+    set(MISRA_CXX_FLAGS
+        -Wall -Wextra -Wpedantic -Werror
+        -Wconversion -Wsign-conversion
+        -Wnon-virtual-dtor -Wold-style-cast -Woverloaded-virtual
+        -Wno-c++98-compat -Wno-c++98-compat-pedantic
+        -fno-exceptions -fno-rtti
+        -fstack-protector-strong
+    )
+endif()
 
 # clang-tidy integration
 if(CLANG_TIDY)

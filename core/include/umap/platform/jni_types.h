@@ -4,7 +4,12 @@
 #ifndef UMAP_PLATFORM_JNI_TYPES_H_
 #define UMAP_PLATFORM_JNI_TYPES_H_
 
+#include <cstdint>
+
+// Only include jni.h on Android builds
+#ifdef __ANDROID__
 #include <jni.h>
+#endif
 
 namespace umap::platform {
 

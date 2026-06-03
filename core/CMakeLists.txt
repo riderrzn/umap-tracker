@@ -44,6 +44,13 @@ target_include_directories(umap-core
 # C++ standard
 target_compile_features(umap-core PUBLIC cxx_std_17)
 
+# Apply MISRA C++:2023 flags to our library
+if(MSVC)
+    target_compile_options(umap-core PRIVATE /W4)
+else()
+    target_compile_options(umap-core PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
+
 # ============================================================================
 # Android NDK (if enabled)
 # ============================================================================

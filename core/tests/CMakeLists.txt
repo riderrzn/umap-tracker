@@ -25,6 +25,7 @@ target_sources(test_utils
         test_ring_buffer.cpp
         test_geo_types.cpp
         test_config.cpp
+        test_android_bridge.cpp
 )
 
 target_link_libraries(test_utils
@@ -35,6 +36,13 @@ target_link_libraries(test_utils
 )
 
 target_compile_features(test_utils PRIVATE cxx_std_17)
+
+# Apply MISRA flags to tests
+if(MSVC)
+    target_compile_options(test_utils PRIVATE /W4)
+else()
+    target_compile_options(test_utils PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
 
 # ============================================================================
 # Register tests

@@ -8,6 +8,11 @@
 #include <cstdint>
 #include <cmath>
 
+// Define M_PI for MSVC compatibility (not in <cmath> by default)
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 namespace umap::core {
 
 // WGS84 coordinate system
