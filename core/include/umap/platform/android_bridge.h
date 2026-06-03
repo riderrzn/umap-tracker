@@ -240,6 +240,15 @@ public:
         }
     }
 
+    // Check if GPS data is available in the queue
+    [[nodiscard]] static bool is_gps_available() noexcept;
+
+    // Initialize the location engine (clear state, unregister callbacks)
+    static void initialize() noexcept;
+
+    // Shutdown the location engine (clean up)
+    static void shutdown() noexcept;
+
 private:
     // Callbacks registered by JNI layer
     LocationCallback location_callback_ = nullptr;
