@@ -26,6 +26,13 @@ target_sources(test_utils
         test_geo_types.cpp
         test_config.cpp
         test_android_bridge.cpp
+        test_kalman_filter.cpp
+        test_state_machine.cpp
+        test_message_queue.cpp
+        test_traccar_client.cpp
+        integration_kalman_state.cpp
+        integration_queue_traccar.cpp
+        bench_kalman.cpp
 )
 
 target_link_libraries(test_utils

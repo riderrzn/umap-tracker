@@ -23,6 +23,8 @@ enum class ErrorCode : uint8_t {
     ThreadError = 6U,
     NotInitialized = 7U,
     OutOfRange = 8U,
+    NotFound = 9U,
+    InternalError = 10U,
 };
 
 // Helper to format error messages
@@ -46,6 +48,10 @@ inline const char* error_to_string(ErrorCode err) noexcept {
             return "Not initialized";
         case ErrorCode::OutOfRange:
             return "Out of range";
+        case ErrorCode::NotFound:
+            return "Not found";
+        case ErrorCode::InternalError:
+            return "Internal error";
         default:
             return "Unknown error";
     }

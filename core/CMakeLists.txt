@@ -6,6 +6,9 @@
 
 set(UMAP_CORE_HEADERS
     include/umap/core/geo_types.h
+    include/umap/core/kalman_filter.h
+    include/umap/core/state_machine.h
+    include/umap/data/http_client.h
     include/umap/data/message_queue.h
     include/umap/data/traccar_client.h
     include/umap/platform/android_bridge.h
@@ -30,6 +33,7 @@ target_sources(umap-core
         src/core/kalman_filter.cpp
         src/data/message_queue.cpp
         src/data/traccar_client.cpp
+        src/data/mock_http_client.cpp
         src/platform/android_bridge.cpp
         src/utils/logger.cpp
         src/utils/config.cpp
@@ -84,10 +88,36 @@ if(ANDROID)
 endif()
 
 # ============================================================================
-# External dependencies (stub for now)
+# External dependencies
 # ============================================================================
 
-# TODO: Add libcurl, SQLite, etc.
-# For now, headers-only approach for faster iteration
+include(FetchContent)
+
+# SQLite3 amalgamation
+FetchContent_Declare(sqlite3
+    URL https://www.sqlite.org/2024/sqlite-amalgamation-3450200.zip
+    URL_HASH SHA256=65230414820d43a6d1445d1d98cfe57e8eb9f7ac0d6a96ad6932e0647cce51db
+)
+
+FetchContent_MakeAvailable(sqlite3)
+
+add_library(sqlite3_obj OBJECT
+    ${sqlite3_SOURCE_DIR}/sqlite3.c
+)
+target_include_directories(sqlite3_obj PUBLIC ${sqlite3_SOURCE_DIR})
+target_compile_definitions(sqlite3_obj PRIVATE
+    SQLITE_THREADSAFE=1
+    SQLITE_ENABLE_FTS5
+    SQLITE_ENABLE_JSON1
+    _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+    target_compile_options(sqlite3_obj PRIVATE /W0)
+else()
+    target_compile_options(sqlite3_obj PRIVATE -w)
+endif()
+
+target_link_libraries(umap-core PRIVATE sqlite3_obj)
 
 message(STATUS "umap-core library configured")
