@@ -23,6 +23,8 @@ target_sources(test_utils
         test_result.cpp
         test_logger.cpp
         test_ring_buffer.cpp
+        test_geo_types.cpp
+        test_config.cpp
 )
 
 target_link_libraries(test_utils
