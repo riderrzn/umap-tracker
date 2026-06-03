@@ -22,9 +22,9 @@ protected:
         mock_http.set_response(200, "{}");
     }
 
-    umap::core::GpsPoint make_point(double lat, double lon, uint32_t timestamp) {
-        umap::core::GpsPoint point;
-        point.location = umap::core::Coordinate(lat, lon);
+    GpsPoint make_point(double lat, double lon, uint32_t timestamp) {
+        GpsPoint point;
+        point.location = Coordinate(lat, lon);
         point.speed_kmh = 30.0;
         point.accuracy_m = 5.0;
         point.timestamp_ms = timestamp;
@@ -33,7 +33,7 @@ protected:
 };
 
 TEST_F(IntegrationQueueTraccarTest, EnqueueAndSendSinglePoint) {
-    auto point = make_point(55.7558, 37.6173, 1717500000000U);
+    auto point = make_point(55.7558, 37.6173, 1000000U);
     std::string payload = client.build_json_payload(point);
 
     auto enq_result = queue.enqueue(payload.c_str());

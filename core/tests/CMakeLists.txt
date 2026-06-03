@@ -30,6 +30,9 @@ target_sources(test_utils
         test_state_machine.cpp
         test_message_queue.cpp
         test_traccar_client.cpp
+        test_gps_pipeline.cpp
+        test_upload_worker.cpp
+        test_stress.cpp
         integration_kalman_state.cpp
         integration_queue_traccar.cpp
         bench_kalman.cpp

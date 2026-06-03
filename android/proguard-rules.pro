@@ -1,4 +1,4 @@
-// Proguard rules for R8 minification
+# Proguard rules for R8 minification
 
 -keep class com.example.umap.tracker.** { *; }
 -keep interface com.example.umap.tracker.** { *; }

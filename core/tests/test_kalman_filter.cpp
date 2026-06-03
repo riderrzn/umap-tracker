@@ -333,6 +333,79 @@ TEST_F(KalmanFilterNDTest, ErrorTracking) {
     EXPECT_GT(alt_error, 0.0);
 }
 
+TEST_F(KalmanFilterNDTest, PopulateGpsPoint) {
+    filter.update(55.0, 37.0, 100.0, 5.0);
+    filter.predict(0.1);
+    filter.update(55.001, 37.001, 105.0, 5.0);
+
+    GpsPoint point;
+    point.timestamp_ms = 1000U;
+    point.accuracy_m = 5.0;
+    filter.populate_point(point);
+
+    EXPECT_NEAR(point.location.latitude, 55.0, 0.002);
+    EXPECT_NEAR(point.location.longitude, 37.0, 0.002);
+    EXPECT_GT(point.speed_kmh, 0.0);
+    EXPECT_GE(point.bearing_deg, 0.0);
+    EXPECT_LE(point.bearing_deg, 360.0);
+    EXPECT_NEAR(point.altitude_m, 100.0, 5.0);
+}
+
+// ============================================================================
+// Factory Function Tests
+// ============================================================================
+
+TEST(KalmanFactoryTest, Default1DFilter) {
+    auto f = create_default_1d_filter();
+    EXPECT_GT(f.get_error(), 0.0);
+    EXPECT_DOUBLE_EQ(f.get_estimate(), 0.0);
+}
+
+TEST(KalmanFactoryTest, DefaultGpsFilter) {
+    auto f = create_default_gps_filter();
+    auto state = f.get_state();
+    EXPECT_DOUBLE_EQ(state.latitude, 0.0);
+    EXPECT_DOUBLE_EQ(state.longitude, 0.0);
+}
+
+TEST(KalmanFactoryTest, CustomGpsFilter) {
+    auto f = create_gps_filter(0.01, 2.0, 5.0);
+    auto state = f.get_state();
+    EXPECT_DOUBLE_EQ(state.latitude, 0.0);
+}
+
+// ============================================================================
+// Boundary Tests
+// ============================================================================
+
+TEST_F(KalmanFilter1DTest, ExtremeValues) {
+    filter.update(1e6);
+    EXPECT_NEAR(filter.get_estimate(), 1e6, 1e3);
+
+    filter.update(-1e6);
+    EXPECT_LT(filter.get_estimate(), 1e6);
+}
+
+TEST_F(KalmanFilterNDTest, ExtremeCoordinates) {
+    filter.update(89.9999, 179.9999, 0.0, 5.0);
+    auto state = filter.get_state();
+    EXPECT_NEAR(state.latitude, 89.9999, 0.001);
+    EXPECT_NEAR(state.longitude, 179.9999, 0.001);
+
+    filter.predict(1.0);
+    filter.update(-89.9999, -179.9999, 0.0, 5.0);
+    auto state2 = filter.get_state();
+    EXPECT_LT(state2.latitude, 0.0);
+}
+
+TEST_F(KalmanFilterNDTest, ZeroDtPredict) {
+    filter.update(55.0, 37.0, 100.0, 5.0);
+    double error_before = filter.get_latitude_error();
+    filter.predict(0.0);
+    double error_after = filter.get_latitude_error();
+    EXPECT_DOUBLE_EQ(error_before, error_after);
+}
+
 // ============================================================================
 // Outlier Rejection Tests (S2-3)
 // ============================================================================

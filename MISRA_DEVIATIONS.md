@@ -1,7 +1,7 @@
 # MISRA C++:2023 Deviations
 
-**Document Version:** 1.0  
-**Last Updated:** 2026-06-03  
+**Document Version:** 2.0  
+**Last Updated:** 2026-06-04  
 **Project:** umap-tracker (Android GPS Tracker)
 
 ---
@@ -50,11 +50,11 @@ This document records all deviations from MISRA C++:2023 compliance. Each deviat
 **Rationale:** EGL/GLES rendering APIs (if used) require pointer reinterpretation for buffer handles and shader bytecode. No safer alternative exists in graphics APIs.
 
 **Scope:**
-- `core/src/platform/rendering.cpp` (if added)
+- `core/jni/jni_bridge.cpp` (JNI_OnLoad GetEnv call)
 
-**Exceptions:** Graphics buffer/shader handling only
+**Exceptions:** JNI runtime initialization and graphics buffer handles
 
-**Duration:** Permanent (inherent to OpenGL/EGL)
+**Duration:** Permanent (inherent to JNI and OpenGL/EGL)
 
 **Approved by:** C++ Lead
 
@@ -73,7 +73,7 @@ This document records all deviations from MISRA C++:2023 compliance. Each deviat
 
 **Exceptions:** JNI callback struct fields only
 
-**Duration:** Temporary (during JNI bridge development, Sprint 5)
+**Duration:** Permanent (inherent to JNI callback calling conventions)
 
 **Approved by:** C++ Lead
 
@@ -98,6 +98,41 @@ This document records all deviations from MISRA C++:2023 compliance. Each deviat
 
 ---
 
+### D005: Global variables in JNI bridge
+
+**Rule:** M2-10-1 (Avoid global variables)
+
+**Category:** Mandatory
+
+**Rationale:** JNI bridge uses raw pointers as globals (`g_pipeline`, `g_message_queue`, etc.) to maintain pipeline state across JNI calls. Android JNI architecture requires static lifetime. These are not global variables in the classic sense — they represent singleton service objects allocated once in `nativeInitPipeline` and cleaned up in `nativeShutdownPipeline`.
+
+**Scope:**
+- `core/jni/jni_bridge.cpp` (anonymous namespace globals)
+
+**Duration:** Permanent (Android JNI architecture constraint)
+
+**Approved by:** C++ Lead
+
+---
+
+### D006: C-style format strings in snprintf
+
+**Rule:** R21-1-1 (Avoid C library I/O functions)
+
+**Category:** Required
+
+**Rationale:** `std::snprintf` is used in `TraccarClient::build_json_payload()` and `GpsProcessingPipeline::process_location()` for JSON/URL construction. C++20 `std::format` would be MISRA-compliant but is not available with NDK r27+ and `-fno-exceptions -fno-rtti`. The usage is bounded (fixed buffer sizes) and checked (return value validated).
+
+**Scope:**
+- `core/src/data/traccar_client.cpp`
+- `core/src/core/gps_pipeline.cpp`
+
+**Duration:** Permanent (until C++20 std::format becomes available on Android NDK)
+
+**Approved by:** C++ Lead
+
+---
+
 ## Monitoring
 
 All deviations are monitored via:
@@ -114,7 +149,10 @@ All deviations are monitored via:
 | Date | Deviation | Action | Reviewer |
 |------|-----------|--------|----------|
 | 2026-06-03 | D001–D004 | Initial approval | C++ Lead |
-| TBD | | | |
+| 2026-06-04 | D002 | Updated scope to include JNI reinterpret_cast | C++ Lead |
+| 2026-06-04 | D003 | Changed to permanent (JNI bridge finalized) | C++ Lead |
+| 2026-06-04 | D005 | Added: JNI globals for pipeline lifetime | C++ Lead |
+| 2026-06-04 | D006 | Added: snprintf format string exception | C++ Lead |
 
 ---
 

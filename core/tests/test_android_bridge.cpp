@@ -125,7 +125,7 @@ TEST_F(LocationEngineTest, SingletonInstance) {
 
 TEST_F(LocationEngineTest, EnqueueLocation) {
     bool result = LocationEngine::instance().enqueue_location(
-        55.7558, 37.6173, 10.0f, 1000U
+        55.7558, 37.6173, 10.0f, 150.0, 1.5, 1000U
     );
     EXPECT_TRUE(result);
     EXPECT_EQ(LocationEngine::instance().location_queue_size(), 1U);
@@ -133,7 +133,7 @@ TEST_F(LocationEngineTest, EnqueueLocation) {
 
 TEST_F(LocationEngineTest, GetLocation) {
     LocationEngine::instance().enqueue_location(
-        55.7558, 37.6173, 10.0f, 1000U
+        55.7558, 37.6173, 10.0f, 150.0, 1.5, 1000U
     );
     
     auto point = LocationEngine::instance().get_location();
@@ -210,7 +210,7 @@ TEST_F(LocationEngineTest, ConcurrentEnqueue) {
     auto enqueue_thread = [](int start, int count) {
         for (int i = start; i < start + count; ++i) {
             LocationEngine::instance().enqueue_location(
-                55.0 + i, 37.0 + i, 10.0f + i, 1000U + i
+                55.0 + i, 37.0 + i, 10.0f + i, 0.0, 0.0, 1000U + i
             );
         }
     };
@@ -229,7 +229,7 @@ TEST_F(LocationEngineTest, ConcurrentDequeue) {
     // Pre-fill queue
     for (int i = 0; i < 100; ++i) {
         LocationEngine::instance().enqueue_location(
-            55.0 + i, 37.0 + i, 10.0f, 1000U
+            55.0 + i, 37.0 + i, 10.0f, 0.0, 0.0, 1000U
         );
     }
     
@@ -264,7 +264,7 @@ TEST_F(LocationEngineTest, StaticLocationCallback) {
     };
     
     LocationEngine::instance().register_location_callback(callback);
-    LocationEngine::instance().on_location_received(55.7558, 37.6173, 10.0f, 1000U);
+    LocationEngine::instance().on_location_received(55.7558, 37.6173, 10.0f, 150.0, 1.5, 1000U);
     
     // Should be queued
     EXPECT_EQ(LocationEngine::instance().location_queue_size(), 1U);
@@ -278,7 +278,7 @@ TEST_F(LocationEngineTest, RealisticGpsPoints) {
     
     for (int i = 0; i < 7; ++i) {
         LocationEngine::instance().enqueue_location(
-            latitudes[i], longitudes[i], 5.0f, 1000U + i * 1000U
+            latitudes[i], longitudes[i], 5.0f, 0.0, 0.0, 1000U + i * 1000U
         );
     }
     
@@ -291,4 +291,38 @@ TEST_F(LocationEngineTest, RealisticGpsPoints) {
         EXPECT_DOUBLE_EQ(point.value().location.latitude, latitudes[i]);
         EXPECT_DOUBLE_EQ(point.value().location.longitude, longitudes[i]);
     }
+}
+
+// Test battery state is stored and injected into GpsPoint
+TEST_F(LocationEngineTest, BatteryStateInjectedIntoGpsPoint) {
+    LocationEngine::instance().clear_location_queue();
+
+    LocationEngine::instance().on_battery_changed(85U, true);
+
+    LocationEngine::instance().enqueue_location(
+        55.0, 37.0, 10.0f, 150.0, 1.5, 1000U
+    );
+
+    auto point = LocationEngine::instance().get_location();
+    ASSERT_TRUE(point.has_value());
+    EXPECT_EQ(point.value().battery_percent, 85U);
+    EXPECT_TRUE(point.value().is_charging);
+
+    LocationEngine::instance().clear_location_queue();
+}
+
+// Test altitude and hdop are passed through to GpsPoint
+TEST_F(LocationEngineTest, AltitudeAndHdopInGpsPoint) {
+    LocationEngine::instance().clear_location_queue();
+
+    LocationEngine::instance().enqueue_location(
+        55.0, 37.0, 10.0f, 250.0, 2.3, 2000U
+    );
+
+    auto point = LocationEngine::instance().get_location();
+    ASSERT_TRUE(point.has_value());
+    EXPECT_DOUBLE_EQ(point.value().altitude_m, 250.0);
+    EXPECT_DOUBLE_EQ(point.value().hdop, 2.3);
+
+    LocationEngine::instance().clear_location_queue();
 }

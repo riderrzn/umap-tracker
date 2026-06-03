@@ -12,7 +12,8 @@ namespace umap::data {
 struct MessageQueue::Impl {
     sqlite3* db = nullptr;
     sqlite3_stmt* stmt_enqueue = nullptr;
-    sqlite3_stmt* stmt_dequeue = nullptr;
+    sqlite3_stmt* stmt_dequeue_select = nullptr;
+    sqlite3_stmt* stmt_dequeue_mark = nullptr;
     sqlite3_stmt* stmt_mark_sent = nullptr;
     sqlite3_stmt* stmt_mark_failed = nullptr;
     sqlite3_stmt* stmt_pending_count = nullptr;
@@ -40,13 +41,15 @@ constexpr const char* SQL_ENQUEUE =
     "INSERT INTO messages (payload, created_at, next_retry_at) "
     "VALUES (?, ?, ?);";
 
-constexpr const char* SQL_DEQUEUE =
-    "UPDATE messages SET next_retry_at = next_retry_at + 86400 "
-    "WHERE id = ("
-    "  SELECT id FROM messages "
-    "  WHERE next_retry_at <= ? "
-    "  ORDER BY created_at ASC LIMIT 1"
-    ") RETURNING id, payload, retry_count, created_at;";
+constexpr const char* SQL_DEQUEUE_SELECT =
+    "SELECT id, payload, retry_count, created_at "
+    "FROM messages "
+    "WHERE next_retry_at <= ? "
+    "ORDER BY created_at ASC LIMIT 1;";
+
+constexpr const char* SQL_DEQUEUE_MARK =
+    "UPDATE messages SET next_retry_at = ? "
+    "WHERE id = ?;";
 
 constexpr const char* SQL_MARK_SENT =
     "DELETE FROM messages WHERE id = ?;";
@@ -101,7 +104,8 @@ void MessageQueue::create_tables() {
     sqlite3_exec(impl_->db, SQL_CREATE_INDEX, nullptr, nullptr, nullptr);
 
     sqlite3_prepare_v2(impl_->db, SQL_ENQUEUE, -1, &impl_->stmt_enqueue, nullptr);
-    sqlite3_prepare_v2(impl_->db, SQL_DEQUEUE, -1, &impl_->stmt_dequeue, nullptr);
+    sqlite3_prepare_v2(impl_->db, SQL_DEQUEUE_SELECT, -1, &impl_->stmt_dequeue_select, nullptr);
+    sqlite3_prepare_v2(impl_->db, SQL_DEQUEUE_MARK, -1, &impl_->stmt_dequeue_mark, nullptr);
     sqlite3_prepare_v2(impl_->db, SQL_MARK_SENT, -1, &impl_->stmt_mark_sent, nullptr);
     sqlite3_prepare_v2(impl_->db, SQL_MARK_FAILED, -1, &impl_->stmt_mark_failed, nullptr);
     sqlite3_prepare_v2(impl_->db, SQL_PENDING_COUNT, -1, &impl_->stmt_pending_count, nullptr);
@@ -112,7 +116,8 @@ void MessageQueue::create_tables() {
 
 void MessageQueue::finalize() noexcept {
     if (impl_->stmt_enqueue) { sqlite3_finalize(impl_->stmt_enqueue); impl_->stmt_enqueue = nullptr; }
-    if (impl_->stmt_dequeue) { sqlite3_finalize(impl_->stmt_dequeue); impl_->stmt_dequeue = nullptr; }
+    if (impl_->stmt_dequeue_select) { sqlite3_finalize(impl_->stmt_dequeue_select); impl_->stmt_dequeue_select = nullptr; }
+    if (impl_->stmt_dequeue_mark) { sqlite3_finalize(impl_->stmt_dequeue_mark); impl_->stmt_dequeue_mark = nullptr; }
     if (impl_->stmt_mark_sent) { sqlite3_finalize(impl_->stmt_mark_sent); impl_->stmt_mark_sent = nullptr; }
     if (impl_->stmt_mark_failed) { sqlite3_finalize(impl_->stmt_mark_failed); impl_->stmt_mark_failed = nullptr; }
     if (impl_->stmt_pending_count) { sqlite3_finalize(impl_->stmt_pending_count); impl_->stmt_pending_count = nullptr; }
@@ -159,37 +164,44 @@ utils::Result<void> MessageQueue::enqueue(const char* payload) {
 }
 
 utils::Result<QueuedMessage> MessageQueue::dequeue() {
-    if (impl_->db == nullptr || impl_->stmt_dequeue == nullptr) {
+    if (impl_->db == nullptr || impl_->stmt_dequeue_select == nullptr ||
+        impl_->stmt_dequeue_mark == nullptr) {
         return utils::Unexpected(utils::ErrorCode::InvalidConfig);
     }
 
     int64_t now = now_seconds();
-    sqlite3_bind_int64(impl_->stmt_dequeue, 1, now);
 
+    sqlite3_bind_int64(impl_->stmt_dequeue_select, 1, now);
     utils::Result<QueuedMessage> result;
-    int rc = sqlite3_step(impl_->stmt_dequeue);
+    int rc = sqlite3_step(impl_->stmt_dequeue_select);
     if (rc == SQLITE_ROW) {
         QueuedMessage msg;
-        msg.id = static_cast<uint64_t>(sqlite3_column_int64(impl_->stmt_dequeue, 0));
+        msg.id = static_cast<uint64_t>(sqlite3_column_int64(impl_->stmt_dequeue_select, 0));
         const char* text = reinterpret_cast<const char*>(
-            sqlite3_column_text(impl_->stmt_dequeue, 1));
+            sqlite3_column_text(impl_->stmt_dequeue_select, 1));
         if (text != nullptr) {
             msg.payload = text;
         }
         msg.retry_count = static_cast<uint32_t>(
-            sqlite3_column_int(impl_->stmt_dequeue, 2));
-        msg.created_at = sqlite3_column_int64(impl_->stmt_dequeue, 3);
+            sqlite3_column_int(impl_->stmt_dequeue_select, 2));
+        msg.created_at = sqlite3_column_int64(impl_->stmt_dequeue_select, 3);
         msg.next_retry_at = now + 86400;
-        result = msg;
-    } else if (rc == SQLITE_DONE) {
-        // No rows returned — either empty queue or no ready messages
-        result = utils::Unexpected(utils::ErrorCode::NotFound);
-    } else {
-        result = utils::Unexpected(utils::ErrorCode::InternalError);
-    }
 
-    sqlite3_reset(impl_->stmt_dequeue);
-    sqlite3_clear_bindings(impl_->stmt_dequeue);
+        sqlite3_reset(impl_->stmt_dequeue_select);
+        sqlite3_clear_bindings(impl_->stmt_dequeue_select);
+
+        sqlite3_bind_int64(impl_->stmt_dequeue_mark, 1, msg.next_retry_at);
+        sqlite3_bind_int64(impl_->stmt_dequeue_mark, 2, static_cast<sqlite3_int64>(msg.id));
+        sqlite3_step(impl_->stmt_dequeue_mark);
+        sqlite3_reset(impl_->stmt_dequeue_mark);
+        sqlite3_clear_bindings(impl_->stmt_dequeue_mark);
+
+        result = msg;
+    } else {
+        sqlite3_reset(impl_->stmt_dequeue_select);
+        sqlite3_clear_bindings(impl_->stmt_dequeue_select);
+        result = utils::Unexpected(utils::ErrorCode::NotFound);
+    }
 
     return result;
 }

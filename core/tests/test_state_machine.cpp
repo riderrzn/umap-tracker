@@ -424,3 +424,23 @@ TEST(StateTransitionMatrixTest, AllTransitionsCovered) {
     // Test Error transitions
     EXPECT_TRUE(machine.can_transition(LocationState::Error, StateEvent::ErrorRecovered));
 }
+
+// Test event_to_string for all events
+TEST(EventStringTest, AllEventsHaveString) {
+    EXPECT_STREQ(event_to_string(StateEvent::StartTracking), "StartTracking");
+    EXPECT_STREQ(event_to_string(StateEvent::StopTracking), "StopTracking");
+    EXPECT_STREQ(event_to_string(StateEvent::LocationAcquired), "LocationAcquired");
+    EXPECT_STREQ(event_to_string(StateEvent::LocationLost), "LocationLost");
+    EXPECT_STREQ(event_to_string(StateEvent::UploadStarted), "UploadStarted");
+    EXPECT_STREQ(event_to_string(StateEvent::UploadCompleted), "UploadCompleted");
+    EXPECT_STREQ(event_to_string(StateEvent::UploadFailed), "UploadFailed");
+    EXPECT_STREQ(event_to_string(StateEvent::PauseTracking), "PauseTracking");
+    EXPECT_STREQ(event_to_string(StateEvent::ResumeTracking), "ResumeTracking");
+    EXPECT_STREQ(event_to_string(StateEvent::ErrorOccurred), "ErrorOccurred");
+    EXPECT_STREQ(event_to_string(StateEvent::ErrorRecovered), "ErrorRecovered");
+}
+
+TEST(EventStringTest, UnknownEvent) {
+    auto unknown = static_cast<StateEvent>(255U);
+    EXPECT_STREQ(event_to_string(unknown), "Unknown");
+}

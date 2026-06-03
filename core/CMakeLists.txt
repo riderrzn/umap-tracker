@@ -6,11 +6,13 @@
 
 set(UMAP_CORE_HEADERS
     include/umap/core/geo_types.h
+    include/umap/core/gps_pipeline.h
     include/umap/core/kalman_filter.h
     include/umap/core/state_machine.h
     include/umap/data/http_client.h
     include/umap/data/message_queue.h
     include/umap/data/traccar_client.h
+    include/umap/data/upload_worker.h
     include/umap/platform/android_bridge.h
     include/umap/platform/jni_types.h
     include/umap/utils/config.h
@@ -31,9 +33,11 @@ target_sources(umap-core
     PRIVATE
         src/core/state_machine.cpp
         src/core/kalman_filter.cpp
+        src/core/gps_pipeline.cpp
         src/data/message_queue.cpp
         src/data/traccar_client.cpp
         src/data/mock_http_client.cpp
+        src/data/upload_worker.cpp
         src/platform/android_bridge.cpp
         src/utils/logger.cpp
         src/utils/config.cpp

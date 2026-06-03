@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // MISRA C++:2023 compliant
-// Location tracking state machine
+/// @defgroup state_machine State Machine
+/// @brief Location tracking state machine with 6 states and 11 events.
+///
+/// States: Idle → Acquiring → Tracking ⇄ Uploading ⇄ Tracking
+///         Tracking → Paused → Tracking
+///         Any → Error → Idle
+/// @{
 
 #ifndef UMAP_CORE_STATE_MACHINE_H_
 #define UMAP_CORE_STATE_MACHINE_H_
@@ -243,5 +249,7 @@ private:
 };
 
 }  // namespace umap::core
+
+/// @}
 
 #endif  // UMAP_CORE_STATE_MACHINE_H_

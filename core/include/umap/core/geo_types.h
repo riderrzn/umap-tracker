@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // MISRA C++:2023 compliant
-// Geographic data types (WGS84, GPS points)
+
+/// @defgroup geo_types Geographic data types
+/// @brief WGS84 coordinate system, GPS point with quality scoring.
+/// @{
+
+/// WGS84 coordinate with Haversine distance calculation.
+/// Latitude range: [-90.0, 90.0], Longitude range: [-180.0, 180.0].
 
 #ifndef UMAP_CORE_GEO_TYPES_H_
 #define UMAP_CORE_GEO_TYPES_H_
@@ -104,5 +110,7 @@ struct GpsPoint {
 };
 
 }  // namespace umap::core
+
+/// @}
 
 #endif  // UMAP_CORE_GEO_TYPES_H_

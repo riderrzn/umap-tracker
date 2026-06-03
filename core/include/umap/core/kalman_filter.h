@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // MISRA C++:2023 compliant
-// Kalman filter for GPS location smoothing
+/// @defgroup kalman Kalman Filter
+/// @brief 1D and 3D Kalman filters for GPS position smoothing, velocity, and bearing.
+/// @{
 
 #ifndef UMAP_CORE_KALMAN_FILTER_H_
 #define UMAP_CORE_KALMAN_FILTER_H_
 
 #include <cmath>
 #include <cstdint>
+
+#include "umap/core/geo_types.h"
 
 namespace umap::core {
 
@@ -199,6 +203,14 @@ public:
         return state_;
     }
 
+    // Populate GpsPoint with filtered state values (speed, bearing, altitude)
+    void populate_point(core::GpsPoint& point) const noexcept {
+        point.speed_kmh = state_.speed_kmh;
+        point.bearing_deg = state_.bearing_deg;
+        point.altitude_m = state_.altitude;
+        point.location = core::Coordinate(state_.latitude, state_.longitude);
+    }
+
     // Get latitude uncertainty
     [[nodiscard]] double get_latitude_error() const noexcept {
         return latitude_filter_.get_error();
@@ -249,5 +261,7 @@ KalmanFilterND create_gps_filter(double process_noise, double measurement_noise,
 KalmanFilterND create_default_gps_filter() noexcept;
 
 }  // namespace umap::core
+
+/// @}
 
 #endif  // UMAP_CORE_KALMAN_FILTER_H_

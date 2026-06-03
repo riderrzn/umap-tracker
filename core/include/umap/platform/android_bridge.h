@@ -180,11 +180,15 @@ public:
     // Add location point to queue (called from JNI thread)
     [[nodiscard]] bool enqueue_location(
         double latitude, double longitude, float accuracy_m,
-        uint32_t timestamp_ms) noexcept {
+        double altitude_m, double hdop, uint32_t timestamp_ms) noexcept {
         core::GpsPoint point;
         point.location = core::Coordinate(latitude, longitude);
         point.accuracy_m = static_cast<double>(accuracy_m);
+        point.altitude_m = altitude_m;
+        point.hdop = hdop;
         point.timestamp_ms = timestamp_ms;
+        point.battery_percent = last_battery_percent_;
+        point.is_charging = last_is_charging_;
 
         return location_queue_.enqueue(point);
     }
@@ -207,12 +211,13 @@ public:
 
     // Static JNI callback adapters (forward to singleton)
     static void on_location_received(double lat, double lon, float accuracy,
+                                     double altitude, double hdop,
                                      uint32_t timestamp_ms) noexcept {
         LocationEngine& engine = instance();
         
         // Store in queue for later processing
         // Intentional ignore of overflow result (not critical for queue overflow)
-        engine.enqueue_location(lat, lon, accuracy, timestamp_ms);
+        engine.enqueue_location(lat, lon, accuracy, altitude, hdop, timestamp_ms);
 
         // Invoke registered callback if set
         std::unique_lock<std::mutex> lock(engine.callbacks_mutex_);
@@ -222,10 +227,12 @@ public:
     }
 
     static void on_battery_changed(uint32_t battery_percent,
-                                   bool is_charging) noexcept {
+                                    bool is_charging) noexcept {
         LocationEngine& engine = instance();
-        
+
         std::unique_lock<std::mutex> lock(engine.callbacks_mutex_);
+        engine.last_battery_percent_ = battery_percent;
+        engine.last_is_charging_ = is_charging;
         if (engine.battery_callback_ != nullptr) {
             engine.battery_callback_(battery_percent, is_charging);
         }
@@ -258,8 +265,12 @@ private:
     // Queue for storing GPS locations received from JNI
     ThreadSafeQueue<core::GpsPoint, 1000U> location_queue_;
 
-    // Protect callback pointers
+    // Protect callback pointers and battery state
     mutable std::mutex callbacks_mutex_;
+
+    // Last known battery state (injected into GpsPoint on enqueue)
+    uint32_t last_battery_percent_ = 0U;
+    bool last_is_charging_ = false;
 };
 
 }  // namespace umap::platform

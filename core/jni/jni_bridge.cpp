@@ -1,16 +1,24 @@
-// SPDX-License-Identifier: Apache-2.0
-// MISRA C++:2023 compliant
-// JNI Bridge: connects Kotlin/Java to C++ core via LocationEngine
-
+// Inclusion guard: only compile for Android
 #ifdef __ANDROID__
 
 #include <jni.h>
 #include <umap/platform/android_bridge.h>
+#include <umap/core/gps_pipeline.h>
+#include <umap/data/message_queue.h>
+#include <umap/data/traccar_client.h>
+#include <umap/data/upload_worker.h>
+#include <umap/data/http_client.h>
 #include <umap/utils/logger.h>
 
 namespace {
 
 constexpr const char* TAG = "umap-jni";
+
+umap::core::GpsProcessingPipeline* g_pipeline = nullptr;
+umap::data::MessageQueue* g_message_queue = nullptr;
+umap::data::UploadWorker* g_upload_worker = nullptr;
+umap::data::MockHttpClient* g_mock_http = nullptr;
+umap::data::TraccarClient* g_traccar_client = nullptr;
 
 }  // namespace
 
@@ -33,12 +41,15 @@ JNIEXPORT void JNICALL
 Java_com_example_umap_tracker_TrackerBridge_nativeOnLocationReceived(
     JNIEnv* /* env */, jobject /* thiz */,
     jdouble latitude, jdouble longitude,
-    jfloat accuracy, jlong timestamp_ms) {
+    jfloat accuracy, jdouble altitude,
+    jdouble hdop, jlong timestamp_ms) {
 
     umap::platform::LocationEngine::on_location_received(
         static_cast<double>(latitude),
         static_cast<double>(longitude),
         static_cast<float>(accuracy),
+        static_cast<double>(altitude),
+        static_cast<double>(hdop),
         static_cast<uint32_t>(timestamp_ms));
 }
 
@@ -72,6 +83,90 @@ Java_com_example_umap_tracker_TrackerBridge_nativeOnError(
     if ((message != nullptr) && (msg_str != nullptr)) {
         env->ReleaseStringUTFChars(message, msg_str);
     }
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_umap_tracker_TrackerBridge_nativeInitPipeline(
+    JNIEnv* /* env */, jobject /* thiz */) {
+
+    if (g_message_queue != nullptr) {
+        return;
+    }
+
+    g_message_queue = new umap::data::MessageQueue(":memory:");
+    g_pipeline = new umap::core::GpsProcessingPipeline(*g_message_queue);
+
+    g_mock_http = new umap::data::MockHttpClient();
+    g_mock_http->set_response(200, "{}");
+
+    g_traccar_client = new umap::data::TraccarClient(
+        *g_mock_http, "http://map.bd62.ru:5055", "umap-tracker-001");
+
+    g_upload_worker = new umap::data::UploadWorker(
+        *g_message_queue, *g_traccar_client);
+
+    LOG_TAG_INFO(TAG, "Pipeline initialized");
+}
+
+JNIEXPORT jint JNICALL
+Java_com_example_umap_tracker_TrackerBridge_nativeProcessLocation(
+    JNIEnv* /* env */, jobject /* thiz */) {
+
+    if (g_pipeline == nullptr) {
+        return 0;
+    }
+
+    auto raw = umap::platform::LocationEngine::instance().get_location(0U);
+    if (!raw.has_value()) {
+        return 0;
+    }
+
+    auto result = g_pipeline->process_location(raw.value());
+    return result.has_value() ? 1 : 0;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_example_umap_tracker_TrackerBridge_nativeProcessUpload(
+    JNIEnv* /* env */, jobject /* thiz */) {
+
+    if (g_upload_worker == nullptr) {
+        return 0;
+    }
+
+    return static_cast<jint>(g_upload_worker->process_pending(5U));
+}
+
+JNIEXPORT jint JNICALL
+Java_com_example_umap_tracker_TrackerBridge_nativeGetQueueSize(
+    JNIEnv* /* env */, jobject /* thiz */) {
+
+    if (g_message_queue == nullptr) {
+        return 0;
+    }
+
+    return static_cast<jint>(g_message_queue->pending_count());
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_umap_tracker_TrackerBridge_nativeShutdownPipeline(
+    JNIEnv* /* env */, jobject /* thiz */) {
+
+    delete g_upload_worker;
+    g_upload_worker = nullptr;
+
+    delete g_traccar_client;
+    g_traccar_client = nullptr;
+
+    delete g_mock_http;
+    g_mock_http = nullptr;
+
+    delete g_pipeline;
+    g_pipeline = nullptr;
+
+    delete g_message_queue;
+    g_message_queue = nullptr;
+
+    LOG_TAG_INFO(TAG, "Pipeline shutdown");
 }
 
 #endif  // __ANDROID__
