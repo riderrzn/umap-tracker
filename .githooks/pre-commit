@@ -1,0 +1,36 @@
+#!/bin/bash
+# Pre-commit hook: run MISRA checks before commit
+
+set -euo pipefail
+
+echo "[MISRA] Pre-commit check..."
+
+# Check if build directory exists
+if [ ! -d "build-check" ]; then
+    echo "[MISRA] Creating build directory..."
+    mkdir -p build-check
+fi
+
+# Configure with clang-tidy enabled
+echo "[MISRA] Configuring CMake..."
+cd build-check
+cmake -GNinja \
+    -DCMAKE_CXX_STANDARD=17 \
+    -DBUILD_TESTING=ON \
+    -DENABLE_CLANG_TIDY=ON \
+    .. > /dev/null 2>&1 || true
+
+# Build and check for MISRA violations
+echo "[MISRA] Running clang-tidy..."
+cmake --build . 2>&1 | tee misra-check.log || true
+
+# Fail if violations found
+if grep -iE "(warning|error):" misra-check.log | grep -v "^#" > /dev/null; then
+    echo ""
+    echo "❌ MISRA C++:2023 violations detected!"
+    echo "Fix violations or update MISRA_DEVIATIONS.md"
+    exit 1
+fi
+
+echo "✅ MISRA checks passed"
+exit 0

@@ -1,0 +1,114 @@
+name: Build & Test (MISRA C++:2023)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # =========================================================================
+  # Static Analysis + Unit Tests (Host x86_64)
+  # =========================================================================
+  
+  static-analysis-and-test:
+    runs-on: ubuntu-latest
+    
+    container:
+      image: 'ubuntu:24.04'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y \
+            cmake \
+            ninja-build \
+            clang-tidy-19 \
+            cppcheck \
+            gcc-11 g++-11 \
+            git
+      
+      - name: Create build directory
+        run: mkdir -p build-check
+      
+      - name: Configure CMake (MISRA check enabled)
+        run: |
+          cd build-check
+          cmake -GNinja \
+            -DCMAKE_CXX_COMPILER=g++-11 \
+            -DCMAKE_CXX_STANDARD=17 \
+            -DBUILD_TESTING=ON \
+            -DENABLE_CLANG_TIDY=ON \
+            ..
+      
+      - name: Build with clang-tidy
+        run: |
+          cd build-check
+          cmake --build . 2>&1 | tee build.log
+          
+          # Fail if any clang-tidy warnings/errors
+          if grep -iE "(warning|error):" build.log | grep -v "^#"; then
+            echo "❌ clang-tidy MISRA violations detected!"
+            exit 1
+          fi
+      
+      - name: Run cppcheck (MISRA addon)
+        run: |
+          cd build-check
+          cppcheck --std=c++17 \
+            --enable=all \
+            --addon=misra \
+            ../core/include ../core/src \
+            2>&1 | tee cppcheck.log
+          
+          if [ $? -ne 0 ]; then
+            echo "❌ cppcheck violations detected!"
+            exit 1
+          fi
+      
+      - name: Run unit tests
+        run: |
+          cd build-check
+          ctest --output-on-failure --verbose
+      
+      - name: Upload MISRA reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: misra-reports
+          path: |
+            build-check/build.log
+            build-check/cppcheck.log
+  
+  # =========================================================================
+  # Android NDK Build (Placeholder)
+  # =========================================================================
+  
+  android-build:
+    needs: static-analysis-and-test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+      
+      - name: Build Android NDK libs
+        run: |
+          echo "✓ NDK library build placeholder"
+          # TODO: Implement NDK build with CMake
+      
+      - name: Build Gradle APK (debug)
+        run: |
+          echo "✓ APK build placeholder"
+          # TODO: cd android && ./gradlew assembleDebug

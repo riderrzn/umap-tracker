@@ -1,0 +1,61 @@
+# Build artifacts
+build/
+cmake-build-*/
+out/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+
+# Android
+.gradle/
+.idea/
+*.iml
+local.properties
+gradlew
+gradlew.bat
+gradle/
+
+# NDK
+.cxx/
+*.apk
+*.aab
+
+# CMake
+CMakeUserPresets.json
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# IDE
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Generated
+jni/**/generated/
+gen/
+*.pb.cc
+*.pb.h
+
+# Test artifacts
+Testing/
+test_results/
+*.xml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+*.log
+debug.log
+
+# Clang tools
+.clang-tidy-cache/
+compile_commands.json
